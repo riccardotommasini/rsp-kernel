@@ -399,6 +399,7 @@ class SparqlConnection( object ):
             cmd, param = line.split(None, 1)
         except ValueError:
             raise KrnlException( "invalid magic: {}", line )
+       
         cmd = cmd[1:].lower()
 
         # Process each magic

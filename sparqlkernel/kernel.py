@@ -99,6 +99,7 @@ class SparqlKernel(Kernel):
         self._klog.info( 'START' )
         # Create the object holding the SPARQL connections
         self._k = SparqlConnection()
+        self._rk = RSPConnection()
 
     # -----------------------------------------------------------------
 
@@ -150,16 +151,27 @@ class SparqlKernel(Kernel):
         try:
             # Detect if we've got magics
             magic_lines = []
+            rsp_lines = []
             for line in code_noc:
-                if line[0] != '%':
-                    break
-                magic_lines.append( line )
+                if line[0] == '%':
+                    magic_lines.append( line )
+            
+            for line in code_noc:
+                if line[0] == '$':
+                    rsp_lines.append(line)
 
+            
             # Process magics. Once done, remove them from the query buffer
             if magic_lines:
                 out = [ self._k.magic(line) for line in magic_lines ]
                 self._send( out, 'multi', silent=silent )
                 code = '\n'.join( code_noc[len(magic_lines):] )
+            
+            if rsp_lines:
+                rsp_lines_results = [self._rk.rsp_magic(
+                    line) for line in rsp_lines]
+                result = "\n".join(rsp_lines_results)
+                return self._send(result, 'raw', silent=False)
 
             self._klog.info(code)
 

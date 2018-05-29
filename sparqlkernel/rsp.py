@@ -14,7 +14,7 @@ import pprint
 from collections import deque
 import websocket
 import json, threading
-
+import requests
 
 from IPython.utils.tokenutil import token_at_cursor, line_at_cursor
 from ipykernel.kernelbase import Kernel
@@ -72,14 +72,15 @@ rsp_magics = {
     '%log' :       [ 'critical | error | warning | info | debug', 
                     'set logging level'],
     '%websocket' : [ '<url>', 'use a websocket'],
+    '$engine':['<url>','set engine']
 }
 
 # The full list of all magics
 rsp_magic_help = ('Available magics:\n' + 
-              '  '.join( sorted(magics.keys()) ) + 
+              '  '.join( sorted(rsp_magics.keys()) ) + 
               '\n\n' +
-              '\n'.join( ('{0} {1} : {2}'.format(k,*magics[k]) 
-                          for k in sorted(magics) ) ) )
+              '\n'.join( ('{0} {1} : {2}'.format(k,*rsp_magics[k]) 
+                          for k in sorted(rsp_magics) ) ) )
 
 
 # ----------------------------------------------------------------------
@@ -392,13 +393,14 @@ class RSPConnection( object ):
         """
         # The %lsmagic has no parameters
         if line.startswith( '%lsmagic' ):
-            return magic_help, 'magic-help'
+            return rsp_magic_help, 'magic-help'
 
         # Split line into command & parameters
         try:
             cmd, param = line.split(None, 1)
         except ValueError:
             raise KrnlException( "invalid magic: {}", line )
+        
         cmd = cmd[1:].lower()
 
         # Process each magic
@@ -527,9 +529,26 @@ class RSPConnection( object ):
                 return ("Logging set to {}", l), 'magic'
             except ValueError:
                 raise KrnlException( 'unknown log level: {}', param )
-        
+
+        elif cmd == 'engine':
+
+            if not param:
+                raise KrnlException(' missing engine url')
+
+            self.engine_url = param
+            self.engine_data = self.fetch_engine()
+
+            r = {"data": {'text/plain': self.engine_data}}
+
+            return json.dumps(r)
+            
         else:
             raise KrnlException( "magic not found: {}", cmd )
+
+    def fetch_engine(self):
+        r = requests.get(self.engine_url)
+
+        return r.text
 
 
     def rsp_query( self, query, num=0, silent=False ):
