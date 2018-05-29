@@ -16,6 +16,7 @@ from .utils import is_collection, data_msg
 from .setlogging import set_logging
 from .language import sparql_names, sparql_help
 from .connection import SparqlConnection, KrnlException, magics, magic_help
+from .rsp import RSPConnection, rsp_magics, rsp_magic_help
 # IPython.core.display.HTML
 
 
@@ -160,8 +161,10 @@ class SparqlKernel(Kernel):
                 self._send( out, 'multi', silent=silent )
                 code = '\n'.join( code_noc[len(magic_lines):] )
 
+            self._klog.info(code)
+
             # If we have a regular SPARQL query, process it now
-            result = self._k.query( code, num=self.execution_count ) if code else None
+            result = self._k.query(code, num=self.execution_count ) if code else None
 
             # Return the result
             return self._send( result, 'raw', silent=silent )

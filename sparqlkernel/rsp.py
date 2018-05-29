@@ -54,7 +54,7 @@ mime_type = { SPARQLWrapper.JSON :  set(['application/sparql-results+json',
 # ----------------------------------------------------------------------
 
 # The list of implemented magics with their help, as a pair [param,help-text]
-magics = { 
+rsp_magics = { 
     '%lsmagics' :  [ '', 'list all magics'], 
     '%endpoint' :  [ '<url>', 'set SPARQL endpoint. **REQUIRED**'],
     '%auth':       ['(basic|digest) <username> <passwd>', 'send HTTP authentication'],
@@ -75,7 +75,7 @@ magics = {
 }
 
 # The full list of all magics
-magic_help = ('Available magics:\n' + 
+rsp_magic_help = ('Available magics:\n' + 
               '  '.join( sorted(magics.keys()) ) + 
               '\n\n' +
               '\n'.join( ('{0} {1} : {2}'.format(k,*magics[k]) 
@@ -370,7 +370,7 @@ class CfgStruct:
 
 # ----------------------------------------------------------------------
 
-class SparqlConnection( object ):
+class RSPConnection( object ):
 
     def __init__( self, logger=None ):
         """
@@ -382,7 +382,7 @@ class SparqlConnection( object ):
         self.cfg = CfgStruct( pfx={}, lmt=20, fmt=None, out=None, aut=None,
                               grh=None, dis='table', typ=False, lan=[], par={} )
 
-    def magic( self, line ):
+    def rsp_magic( self, line ):
         """
         Read and process magics
           @param line (str): the full line containing a magic
@@ -532,7 +532,7 @@ class SparqlConnection( object ):
             raise KrnlException( "magic not found: {}", cmd )
 
 
-    def query( self, query, num=0, silent=False ):
+    def rsp_query( self, query, num=0, silent=False ):
         """
         Launch an SPARQL query, process & convert results and return them
         """

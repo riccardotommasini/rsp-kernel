@@ -22,7 +22,6 @@ sparql_keywords = [
     'FROM NAMED', 'GRAPH',
     'ORDER BY', 'ASC', 'DESC',
     'COUNT', 'SUM', 'MIN', 'MAX', 'AVG', 'GROUP_CONCAT', 'SAMPLE',
-
     'LOAD', 'CLEAR', 'DROP', 'CREATE', 'ADD', 'MOVE', 'COPY', 'SILENT',
     'INSERT', 'DELETE',
     'INSERT DATA', 'DELETE DATA', 'DELETE WHERE',
