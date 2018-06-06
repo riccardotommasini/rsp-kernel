@@ -150,36 +150,24 @@ class SparqlKernel(Kernel):
         # Process
         try:
             # Detect if we've got magics
-            magic_lines = []
             rsp_lines = []
+         
             for line in code_noc:
                 if line[0] == '%':
-                    magic_lines.append( line )
-            
-            for line in code_noc:
-                if line[0] == '$':
                     rsp_lines.append(line)
 
-            
-            # Process magics. Once done, remove them from the query buffer
-            if magic_lines:
-                out = [ self._k.magic(line) for line in magic_lines ]
-                self._send( out, 'multi', silent=silent )
-                code = '\n'.join( code_noc[len(magic_lines):] )
-            
             if rsp_lines:
-                rsp_lines_results = [self._rk.rsp_magic(
-                    line) for line in rsp_lines]
-                result = "\n".join(rsp_lines_results)
-                return self._send(result, 'raw', silent=False)
+                self._klog.info(rsp_lines)
+                rsp_lines_results = [self._rk.rsp_magic(line) for line in rsp_lines]
+                code = '\n'.join( code_noc[len(rsp_lines_results):] )
+                self._send(rsp_lines_results, 'multi', silent=silent )
 
             self._klog.info(code)
 
-            # If we have a regular SPARQL query, process it now
-            result = self._k.query(code, num=self.execution_count ) if code else None
-
-            # Return the result
-            return self._send( result, 'raw', silent=silent )
+            if code:
+                result, kind = self._rk.process(code);
+                 # Return the result
+                return self._send( result, kind , silent=silent )
 
         except Exception as e:
             return self._send( e, 'error', silent=silent )

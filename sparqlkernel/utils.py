@@ -1,7 +1,7 @@
 """
 Miscellaneous utility functions
 """
-
+from json2html import *
 import logging
 LOG = logging.getLogger( __name__ )
 
@@ -85,6 +85,23 @@ def data_msglist( msglist ):
                       'text/plain' : txt },
              'metadata' : {} }
 
+def data_msgjsonarray( input ):
+    """
+    Return a Jupyter display_data message, in both HTML & text formats, by 
+    joining together all passed messages.
+
+      @param msglist (iterable): an iterable containing a list of tuples
+        (message, css_style)      
+
+    Each message is either a text string, or a list. In the latter case it is
+    assumed to be a format string + parameters.
+    """
+    html = json2html.convert(json = input)
+
+    return { 'data': {'text/html' : div(html),
+                      'text/plain' : input },
+             'metadata' : {} }
+
 
 def data_msg( msg, mtype=None ):
     """
@@ -107,6 +124,8 @@ def data_msg( msg, mtype=None ):
         return KrnlException(msg)()
     elif mtype == 'multi':
         return data_msglist( msg )
+    elif mtype == 'jsonarray':
+        return data_msgjsonarray( msg )
     else:
         return data_msglist( [ (msg, mtype) ] )
 

@@ -30,14 +30,6 @@ from .utils import is_collection, KrnlException, div, escape
 from .language import sparql_names, sparql_help
 from .drawgraph import draw_graph
 
-# IPython.core.display.HTML
-
-PY3 = sys.version_info[0] == 3
-if PY3:
-    unicode = str
-    touc = str
-else:
-    touc = lambda x : str(x).decode('utf-8','replace')
 
 
 # Valid mime types in the SPARQL response (depending on what we requested)
@@ -57,6 +49,8 @@ mime_type = { SPARQLWrapper.JSON :  set(['application/sparql-results+json',
 rsp_magics = { 
     '%lsmagics' :  [ '', 'list all magics'], 
     '%endpoint' :  [ '<url>', 'set SPARQL endpoint. **REQUIRED**'],
+    '%catalog' :   [ '<url>', 'set RSP catalog. **REQUIRED**'],
+    '%publisher' :   [ '<url>', 'set RSP publisher. **REQUIRED**'],
     '%auth':       ['(basic|digest) <username> <passwd>', 'send HTTP authentication'],
     '%qparam' :    [ '<name> [<value>]', 'add (or delete) a persistent custom parameter to the endpoint query'],
     '%prefix' :    [ '<name> [<uri>]', 'set (or delete) a persistent URI prefix for all queries'],
@@ -71,8 +65,7 @@ rsp_magics = {
     '%outfile' :   [ '<filename> | NONE', 'save raw output to a file (use "%d" in name to add cell number, "NONE" to cancel saving)'],
     '%log' :       [ 'critical | error | warning | info | debug', 
                     'set logging level'],
-    '%websocket' : [ '<url>', 'use a websocket'],
-    '$engine':['<url>','set engine']
+    '%engine':     ['<url>','set engine'],
 }
 
 # The full list of all magics
@@ -322,6 +315,7 @@ def render_graph( result, cfg, **kwargs ):
                        'application/rdf+xml' : 'xml',
                        'text/rdf' : 'xml',
                        'application/rdf+xml' : 'xml',
+                       'json-ld':'json-ld'
     }
 
     try:
@@ -371,6 +365,73 @@ class CfgStruct:
 
 # ----------------------------------------------------------------------
 
+default_headers = {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*'
+        }
+
+class Service(object):
+    def __init__(self, endpoint):
+        self.base = endpoint;
+
+    def _result(self, resp):
+        print(resp.text)
+        return resp.json();
+
+class Catalog(Service):
+
+    def streams(self):
+        r = requests.get(self.base+"/streams")
+        return self._result(r);
+
+    def stream(self, id, source):
+        body = { 'source':source }
+        body = json.dumps(body)
+        r = requests.post(self.base+"/streams/"+id,  data = body, headers=default_headers )
+        return self._result(r);
+
+class Engine(object):
+
+    def _result(self, resp):
+        print(resp.text)
+        return resp.json();
+
+    def __init__(self, endpoint, data):
+        self.base = endpoint;
+        self.data = data;
+
+    def query(self, q):
+        r = requests.get(self.base+"/queries/" + q);
+        return self._result(r);
+
+    def queries(self, q):
+        r = requests.get(self.base+"/queries");
+        return self._result(r);
+
+    def query(self, out, body):  
+        data = {'body':body, 'out':out}
+        data = json.dumps(data)
+        r = requests.post(self.base+"/queries", data = data, headers=default_headers);
+        return r.text;
+
+    def observer(self, id):
+        body = { 'protocol':"WEBSOCKET" }
+        body = json.dumps(body)
+        r = requests.post(self.base+"/observers/"+id,  data = body, headers=default_headers )
+        return r.text;
+
+class Publisher(Service):
+    def streams(self):
+        r = requests.get(self.base+"/streams")
+        return self._result(r);
+
+    def stream(self, id, source):
+        body = { 'source':source }
+        body = json.dumps(body)
+        r = requests.post(self.base+"/streams/"+id,  data = body, headers=default_headers )
+        return r.text;
+# ----------------------------------------------------------------------
+
 class RSPConnection( object ):
 
     def __init__( self, logger=None ):
@@ -382,6 +443,71 @@ class RSPConnection( object ):
         self.log.info( "START" )
         self.cfg = CfgStruct( pfx={}, lmt=20, fmt=None, out=None, aut=None,
                               grh=None, dis='table', typ=False, lan=[], par={} )
+
+    def process(self, code):
+        self.log.info( "PROCESS" )
+        if code:
+                if("DESCRIBE ENGINE" in code):
+                    return self.show_engine();
+                elif("DESCRIBE STREAM" in code):
+                    return self.show_stream(code);
+                elif("LIST STREAMS" in code):
+                        if self.catalog is None:
+                            raise KrnlException('no catalog defined')          
+                        
+                        r = self.catalog.streams()
+
+                        return r, 'jsonarray'
+
+                elif("REGISTER TASK" in code):
+                    return self.register_query(code);                
+                elif("REGISTER STREAM" in code):
+                    if("TASK" in code):
+                        return self.register_observer(code);
+                    else:
+                        return self.register_stream(code);
+
+
+
+    def show_engine( self ):
+        return render_graph(self.engine.data.encode(), self.cfg, format='json-ld'), 'raw'
+
+    def show_stream( self, code ):
+        regex = "DESCRIBE\W+STREAM\W+<(http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+)>"
+        m = re.match(regex, code)
+        uri = m.group(1)
+        resp = requests.get(uri).text;
+        return render_graph(resp.encode(), self.cfg, format='json-ld'), 'raw'
+
+    def register_query( self, code ):
+        regex = "REGISTER\W+TASK\W+([a-z0-9]+)\W+AS\W+(.*)"
+        m = re.match(regex, code.replace('\n', ' '))
+        uri = m.group(1)
+        body = m.group(2)
+        resp = self.engine.query(uri, body)
+        self.log.info( resp )
+        return render_graph(resp.encode(), self.cfg, format='json-ld'), 'raw'
+    
+    def register_stream( self, code ):
+        regex = "REGISTER\W+STREAM\W+([a-z0-9]+)\W+SOURCE\W+<((http[s]?|ws[s]?)?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+)>"
+        m = re.match(regex, code)
+        uri = m.group(1)
+        source = m.group(2)
+        self.log.info( source )
+        resp = self.publisher.stream(uri, source)
+        self.log.info( resp )
+        return render_graph(resp.encode(), self.cfg, format='json-ld'), 'raw'
+    
+    def register_observer( self, code ):
+        regex = "REGISTER\W+STREAM\W+([a-z0-9]+)\W+FROM\WTASK\W(.*)"
+        #<((http[s]?|ws[s]?)?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+)>"
+        m = re.match(regex, code)
+        uri = m.group(2)
+        source = m.group(1)
+        self.log.info( source )
+        resp = self.engine.observer(uri)
+        self.log.info( resp )
+        return render_graph(resp.encode(), self.cfg, format='json-ld'), 'raw'
 
     def rsp_magic( self, line ):
         """
@@ -408,9 +534,7 @@ class RSPConnection( object ):
 
             self.srv = SPARQLWrapper.SPARQLWrapper( param )
             return ['Endpoint set to: {}', param], 'magic'
-        elif cmd == 'websocket':
-           return ['Graph fetched set to: {}', param], 'magic'
-
+        
         elif cmd == 'auth':
 
             auth_data = param.split(None, 2)
@@ -535,23 +659,25 @@ class RSPConnection( object ):
             if not param:
                 raise KrnlException(' missing engine url')
 
-            self.engine_url = param
-            self.engine_data = self.fetch_engine()
+            self.engine = Engine(param, requests.get(param).text)
 
-            r = {"data": {'text/plain': self.engine_data}}
+            return ['Engine set to: {}', param], 'magic'
+        
+        elif cmd == 'publisher':
+           self.publisher = Publisher(param)
 
-            return json.dumps(r)
-            
+           return ['Publisher set to: {}', param], 'magic'
+
+        elif cmd == 'catalog':
+           self.catalog = Catalog(param)
+
+           return ['Catalog set to: {}', param], 'magic'
         else:
             raise KrnlException( "magic not found: {}", cmd )
 
-    def fetch_engine(self):
-        r = requests.get(self.engine_url)
-
-        return r.text
 
 
-    def rsp_query( self, query, num=0, silent=False ):
+    def query( self, query, num=0, silent=False ):
         """
         Launch an SPARQL query, process & convert results and return them
         """

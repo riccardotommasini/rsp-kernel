@@ -1,4 +1,3 @@
-
 from pygments.lexers.rdf import SparqlLexer
 from pygments.token import Other
 
@@ -14,5 +13,4 @@ class SparqlLexerMagics( SparqlLexer ):
 
     # We add to the root tokens a regexp to match %magic lines
     tokens = SparqlLexer.tokens
-    tokens['root'] = [ (r'^%[a-zA-Z]\w+.*\n', Other ) ] + tokens['root'] 
-
+tokens['root'] = [ (r'^%[a-zA-Z]\w+.*\n', Other ) ] + tokens['root']

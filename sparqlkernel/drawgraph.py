@@ -122,6 +122,11 @@ LABEL_PROPERTIES = [
     rdflib.URIRef("http://xmlns.com/foaf/0.1/name"),
     rdflib.URIRef("http://www.w3.org/2006/vcard/ns#fn"),
     rdflib.URIRef("http://www.w3.org/2006/vcard/ns#org"),
+    rdflib.URIRef("http://w3id.org/rsp/vocals-sd#"),
+    rdflib.URIRef("http://w3id.org/rsp/vocals#"),
+    rdflib.URIRef("http://w3id.org/rsp/vocals-prov#"),
+    rdflib.URIRef("https://www.w3.org/TR/vocab-dcat/"),
+
 ]
 
 

@@ -25,6 +25,7 @@ sparql_keywords = [
     'LOAD', 'CLEAR', 'DROP', 'CREATE', 'ADD', 'MOVE', 'COPY', 'SILENT',
     'INSERT', 'DELETE',
     'INSERT DATA', 'DELETE DATA', 'DELETE WHERE',
+    'REGISTER', 'AGGREGATE', 'STREAM',  'WINDOW', 'ON', 'AS', 'LIST',
 
     # SPARQL 1.1
     'SERVICE'
