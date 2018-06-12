@@ -30,6 +30,14 @@ from .utils import is_collection, KrnlException, div, escape
 from .language import sparql_names, sparql_help
 from .drawgraph import draw_graph
 
+# IPython.core.display.HTML
+
+PY3 = sys.version_info[0] == 3
+if PY3:
+    unicode = str
+    touc = str
+else:
+    touc = lambda x : str(x).decode('utf-8','replace')
 
 
 # Valid mime types in the SPARQL response (depending on what we requested)
@@ -400,9 +408,9 @@ class Engine(object):
         self.base = endpoint;
         self.data = data;
 
-    def query(self, q):
+    def task(self, q):
         r = requests.get(self.base+"/queries/" + q);
-        return self._result(r);
+        return r.text;
 
     def queries(self, q):
         r = requests.get(self.base+"/queries");
@@ -451,6 +459,8 @@ class RSPConnection( object ):
                     return self.show_engine();
                 elif("DESCRIBE STREAM" in code):
                     return self.show_stream(code);
+                elif("DESCRIBE TASK" in code):
+                    return self.show_task(code);
                 elif("LIST STREAMS" in code):
                         if self.catalog is None:
                             raise KrnlException('no catalog defined')          
@@ -477,6 +487,13 @@ class RSPConnection( object ):
         m = re.match(regex, code)
         uri = m.group(1)
         resp = requests.get(uri).text;
+        return render_graph(resp.encode(), self.cfg, format='json-ld'), 'raw'
+
+    def show_task( self, code ):
+        regex = "DESCRIBE\W+TASK\W+(.*)"
+        m = re.match(regex, code)
+        t = m.group(1)
+        resp = self.engine.task(t)
         return render_graph(resp.encode(), self.cfg, format='json-ld'), 'raw'
 
     def register_query( self, code ):
